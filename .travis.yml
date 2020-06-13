@@ -3,7 +3,7 @@ services :
   - docker
 
 before_install :
-  - docker build chary123 -t chary123/multi-image -f ./client/Dockerfile.dev ./client
+  - docker build -t chary123/multi-image -f ./client/Dockerfile.dev ./client
 script : 
 #  - docker run chary123/multi-image npm test -- --coverage
   - docker run -r CI=true chary123/multi-image npm test 
