@@ -1,239 +1,148 @@
-create client server folder invivially 
-and create docker file 
+like nginx we have ingress service
 
 
-3 repos ,, 3 dockerer build
+this ingress service is conencted to clusterIP service
+ one of server and one for client 
 
-client container
-docker build -f Dockerfile.dev .
-docker run 
+so in the deployment 
+we have 3 client pods , 3 server pods
 
-server container
-with node mon -- change in the Dockerfile its npm run dev
-docker build -f Dockerfile.dev .
-docker run 
- 
+1 ClusterIP Service - Deployment - 3 multi-client-pod
+1 ClusterIP Service - Deployment - 3 multi-server-pod
 
-and worker container
+1 ClusterIP Service - Deployment - 1 redis-pod
+1 ClusterIP Service - Deployment - 1 postgres-pod ----> Postgres PVC
 
-____________
+Deployment - 1 multi-worker-pod
 
+if another pod want to connect to the pod 
+we should use NodePort Service--> 
+port
+targetPort
+nodePort(random 30000-32767) -----> multi-client Pod
 
-in complex folder crate docker-compose yamlfile with postgrs and run post gre container
-and redis container 
+kubectl get deployments
+kubectl delete deployment client-deployment
 
-version : '3'
-services:
-  postgres:
-    image: 'postgres:latest'
-    environment :
-      - POSTGRES_PASSWORD=password
-  redis:
-    image: 'redis:latest'
-  
-    
-you can run postgres container in the documentation
+kubectl get services
 
-if you want to start a database . better run in a container 
+NAME               TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+client-node-port   NodePort    10.108.213.195   <none>        3050:31515/TCP   2d22h
+kubernetes         ClusterIP   10.96.0.1        <none>        443/TCP          12d
 
--e POSTGRES_PASSWORD=password
+kubectl delete service client-node-port 
 
-__________________________________________________________________________
-
-and 3rd services is our server container 
-
-mentions the dockerfile Dockerfile.dev server container 
-
-path to the source server directory as context
-build the image from this 
-
-host name in the docker yaml means to 
-service name in the yaml file -- pgHOST name is postgres
-
-3 container new
-
-redis
-postgres
-server
+persistant volume claim is just like a advertisement
+actual allocation is not done yet
+state provision is not done yet
 
 
-yest containers
-nginx
-client dev
-client tests
+access modes
+:
+ReadWriteOnce - can be used by sing;e node
+ReadOnlyMany- multiple nodes can red from this
 
-+++++++++++++
-total containers
+ReadWriteMany-can R/W by many nodes
 
-nginx
- client react server
-express server
-worker
-redis
-postgres
-+++++++++++++++++++
-nginx helps in routing request to react client server and express server 
+default is harddrive
+hostpath
+k8s.io/minikube-hostpath
 
-/index.html and main.js
-will be routed to react client server 
+# ---
 
-so nginx adds  with '/api' and routes to react client server 
+ kubectl get storageclass
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+standard (default)   k8s.io/minikube-hostpath   Delete          Immediate           false                  12d
+chary@chary-Latitude-3490:~/docker$ kubectl describe storageclass
+Name:            standard
+IsDefaultClass:  Yes
+Annotations:     kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"storage.k8s.io/v1","kind":"StorageClass","metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"},"labels":{"addonmanager.kubernetes.io/mode":"EnsureExists"},"name":"standard"},"provisioner":"k8s.io/minikube-hostpath"}
+,storageclass.kubernetes.io/is-default-class=true
+Provisioner:           k8s.io/minikube-hostpath
+Parameters:            <none>
+AllowVolumeExpansion:  <unset>
+MountOptions:          <none>
+ReclaimPolicy:         Delete
+VolumeBindingMode:     Immediate
+Events:                <none>
 
-/values/all
-/values/current will be routed to express server
+# --
+you can store in 
 
-nginx will be add '/' at start and express server 
+aws ElasticBlockStore
+AzureFile
+AzureDisk
+NFS
 
-in react server all the axios is requesting the api's to api/values/all 
-in server its just /values/all
+volumes : alloate that storage
+give the pvc name 
 
-so the nginx server wil be adding the /api/ folder 
+in containers--- use that storage
+ subPath is a folder where it stotes
 
-+++++++++++++++++
+kubectl get pv
 
-add default.conf 
-this is nginx configuration 
+kubectl get pvc
 
+__________
 
-tell nginx that threre is an upsteam servers
+dev and prod
 
-upsteam servers means =you cannot directly acces the react client and express server 
-its has to be routed through nginx
-
-so we mention these ports of upstream serers in the default.conf file 
-server 5000 and client 3000
-
-also listen to 80 
-if anyone comes with / send to client 
-if anyone comes with /api send to server stream 
-
-define a new nginx folder 
-+++++++++
-upstream client {
-    server client:3000;
-
-}
-
-upstream server {
-    server server: 5000;
-}
-
-server {
-    listen 80;
-    location /{
-        proxy_pass http://client;
-    }
-    location /api{
-        rewrite /api/(.*) /$1 break;
-        proxy_pass http://api;
-    }
-}
-
-+++++++++++++++++++
-
-and in the same folder create default,conf file and overwrite it in the Dockerfile                                                                                                                                                                                                              
-FROM nginx
-COPY nginx.conf /etc/nginx/nginx.conf
+to store secrets 
+will provide through cli 
+command is 
 
 
-also add the following to the docker-compose.yml file 
-in the services 
-  nginx:
-    restart: always
-    build :
-      dockerfile : Dockerfile.dev
-      context : ./nginx
-    ports :
-      - '3050:80'
-  api : 
+kubectl create secret generic --name --from-literal key=value (PGPASSWORD=password)
 
-  so the whole yml will be 
+generic -storing kv pairs
 
-version : '3'
-services:
-  postgres:
-    image: 'postgres:latest'
-    environment :
-      - POSTGRES_PASSWORD=password
-  redis:
-    image: 'redis:latest'
-  nginx:
-    restart: always
-    build :
-      dockerfile : Dockerfile.dev
-      context : ./nginx
-    ports :
-      - '3050:80'
-    depends_on:
-      - api
-      - client
-
-  api : 
-    build : 
-      dockerfile : Dockerfile.dev
-      context : ./server
-    volumes : 
-        - /app/node_modules
-        - ./server:/app
-    environment :
-        - REDIS_HOST=redis
-        - REDIS_PORT=6379
-        - PGUSER=postgres
-        - PGHOST=postgres
-        - PGPORT=5432
-        - PGDATABASE=postgres
-        - PGPASSWORD=password
-    depends_on :
-        - postgres
-  client :
-    build :
-      dockerfile : Dockerfile.dev
-      context : ./client
-    volumes:
-      - /app/node_modules
-      - ./client:/app
-    ports :
-      - 3001:3000
-  worker:
-    build:
-      dockerfile : Dockerfile.dev
-      context: ./worker
-    volumes:
-    - /app/node_modules
-    - ./worker:/app
+kubectl create secret docker-registry
 
 
+kubectl create secret tls
+
+https-setup 
+set of tls keys
+
+kubectl create secret generic pgpassword --from-literal PGPASSWORD=password
+
+secret/pgpassword created
+chary@chary-Latitude-3490:~/docker/complex2-k8s$ kubectl get secrets
+NAME                  TYPE                                  DATA   AGE
+default-token-mx6qs   kubernetes.io/service-account-token   3      13d
+pgpassword            Opaque                                1      8s
+
+# ----
 
 
-++++++++++++++++
-after updating the nginx build the docker aagain and make all the serices up 
+update postgress pods
+
+Load Balancer
+https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/cloud/deploy.yaml
+
+https://kubernetes.github.io/ingress-nginx/deploy/#aws
+
+https://www.joyfulbikeshedding.com/blog/2018-03-26-studying-the-kubernetes-ingress-system.html
 
 
-__________________________
+google cloud load balancer
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/cloud/deploy.yaml
 
 
-process to deploy on elastic bean stalk
+aws load balancer
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/aws/deploy.yaml
 
 
-push to github
-travis pull the repo
-travis build images 
-test code(npm run test)
-pushed to AWSEB
-EB builds image again and deploys it web server 
+minikube addons enable ingress
+🌟  The 'ingress' addon is enabled
 
-______________
-push to github
-travis pull the repo
-travis build test images 
-test code(npm run test)
-pushed to prod AWSEB
-EB builds image again and deploys it web server 
-
-______________
-
-travis will push to your prod code images to own docker hub
-
-____
+load balance service
 
 
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/cloud/deploy.yaml
+
+
+kubectl get pods -n ingress-nginx

@@ -1,7 +1,7 @@
-const keys = require('./keys')
-const express = require('express')
-const cors = require('cors')
-const bodyParser = require('body-parser')
+const keys = require('./keys');
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
 
 const app = express();
 
@@ -13,20 +13,21 @@ const {Pool}= require('pg')
 const pgClient = new Pool({
     user: keys.pgUser,
     host: keys.pgHost,
-    database : keys.pgDatabase,
-    password : keys.pgPassword,
-    port: keys.pgPort
-})
+    database: keys.pgDatabase,
+    password: keys.pgPassword,
+    port: keys.pgPort,
+});
 
 pgClient.on('error',()=>{
     console.log('lost pg connection ');
     
 });
 
-
-pgClient
+pgClient.on('connect', () => {
+  pgClient
     .query('CREATE TABLE IF NOT EXISTS values (number INT)')
-    .catch(err => console.log(err))
+    .catch((err) => console.log(err));
+});
 
 
 const redis = require('redis')
@@ -34,7 +35,7 @@ const redis = require('redis')
 const redisClient = redis.createClient({
         host : keys.redisHost,
         port: keys.redisPort,
-        retry_stratery : ()=> 1000
+        retry_strategy: ()=> 1000,
     });
 
 
@@ -48,7 +49,7 @@ app.get('/',(req,res)=>{
 
 app.get('/values/all',async(req,res)=> {
     const values = await pgClient.query('SELECT * FROM values')
-    res.send(values.rows)
+    res.send(values.rows);
 
 })
 
@@ -60,8 +61,7 @@ app.get('/values/current',async(req,res)=>{
 
 app.post('/values',async (req,res)=>{
     const index = req.body.index;
-    if (parseInt(index) > 40 )
-    {
+    if (parseInt(index) > 40){
         return res.status(422).send('value too high ')
     }
 

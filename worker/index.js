@@ -7,9 +7,9 @@ const redisClient = redis.createClient({
     host : keys.redisHost,
     port:keys.redisPort,
     retry_strategy: ()=> 1000
-})
+});
 
-const sub = redisClient.duplicate()
+const sub = redisClient.duplicate();
 
 function fib(index) {
     if (index < 2)
